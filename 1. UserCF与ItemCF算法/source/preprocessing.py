@@ -1,37 +1,37 @@
 import numpy as np
+import pandas as pd
 
-    # 对矩阵进行 item 归一化
-def item_ratings_scaler(rating, record):
-    # m代表用户数量，n代表服务数量
-    m, n =rating.shape
-    # 保存每个服务的平均响应时间
-    rating_mean = np.zeros((n, ))
-    # 保存经过正则化后的矩阵
-    rating_norm = np.zeros((m,n))
-    # 求每个服务的平均值，对每一列求均值
-    for i in range(n):
-        #第i个服务 对应用户评过分idx 平均得分；
-        idx = record[:,i] != 0
-        if not np.all(idx == 0):
-                rating_mean[i] = np.mean(rating[idx, i])
-                rating_norm[idx, i] = rating[idx, i] - rating_mean[i]
-        
-    return rating_norm, rating_mean
+# 解析评分行为的数据为BiNE格式
+def parse_user_action(rating, record, train_file='../BiNE/data/rating_train.dat', test_file='../BiNE/data/rating_test.dat'):
+    # 获取评分矩阵
+    record = record.astype(bool)
+    rows,columns = rating.shape
+    train_list = []
+    for row in range(rows):
+        for column in range(columns):
+            weight = rating[row, column]
+            if weight != 0:
+                train_list.append(['u' + str(row), 'i' + str(column), str(weight)])
+    
+    columns_list = ['source','target', 'weight']
 
-# 对矩阵进行 user 归一化
-def user_ratings_normalize(rating, record):
-    # m代表用户数量，n代表服务数量
-    m, n =rating.shape
-    # 保存每个用户的平均响应时间
-    rating_mean = np.zeros((m, 1))
-    # 保存经过正则化后的矩阵
-    rating_norm = np.zeros((m,n))
-    # 求每个用户的平均值，对每一列求均值
-    for i in range(m):
-        # 第i个用户 对应用户评过分idx 平均得分；
-        idx = record[i,:] !=0
-        if not np.all(idx == 0):
-            rating_mean[i] = np.mean(rating[i, idx])
-            rating_norm[i, idx] = rating[i, idx] - rating_mean[i]
-        
-    return rating_norm, rating_mean
+    source_df = pd.DataFrame(train_list, columns=columns_list)
+
+    # 乱序
+    values = source_df.values
+    np.random.shuffle(values)
+    shuffle_df = pd.DataFrame(values, columns=columns_list)
+
+    # 划分测试数据集
+    ratio = int(source_df['source'].count() * 0.8)
+    test_df = shuffle_df.iloc[ratio:, :]
+    train_df = source_df
+
+    # 保存数据
+    train_df.to_csv(train_file, index=None, header=None, sep='\t')
+    test_df.to_csv(test_file, index=None, header=None, sep='\t')
+
+
+# 解析电影的分类数据为BiNE格式
+def parse_item_tags():
+    pass
