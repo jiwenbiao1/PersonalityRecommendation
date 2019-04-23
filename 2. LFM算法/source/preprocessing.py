@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 # 对矩阵进行 item 归一化
 def item_ratings_scaler(rating, record):
@@ -35,3 +36,75 @@ def user_ratings_normalize(rating, record):
             rating_norm[i, idx] = rating[i, idx] - rating_mean[i]
         
     return rating_norm, rating_mean
+
+# 解析评分行为的数据为BiNE格式
+def parse_user_action(rating, record, train_file='../../BiNE/data/rating_train.dat', test_file='../../BiNE/data/rating_test.dat'):
+    # 获取评分矩阵
+    record = record.astype(bool)
+    rows,columns = rating.shape
+    train_list = []
+    for row in range(rows):
+        for column in range(columns):
+            weight = rating[row, column]
+            if weight != 0:
+                train_list.append(['u' + str(row), 'i' + str(column), str(weight)])
+    
+    columns_list = ['source','target', 'weight']
+
+    source_df = pd.DataFrame(train_list, columns=columns_list)
+
+    # 乱序
+    values = source_df.values
+    np.random.shuffle(values)
+    shuffle_df = pd.DataFrame(values, columns=columns_list)
+
+    # 划分测试数据集
+    ratio = int(source_df['source'].count() * 0.8)
+    test_df = shuffle_df.iloc[ratio:, :]
+    train_df = source_df
+
+    # 保存数据
+    train_df.to_csv(train_file, index=None, header=None, sep='\t')
+    test_df.to_csv(test_file, index=None, header=None, sep='\t')
+
+
+def _generate_BiNE_data(df):
+        new_df = pd.DataFrame()
+         # 转换 source
+        new_df['source']  = df['source'].map(lambda x: 'u'+ str(x))
+        # 转换 target
+        data_set = set(df['target'])
+        data_dict = {v:'i' + str(i) for i, v in enumerate(data_set)}
+        new_df['target'] = df['target'].map(data_dict)
+        new_df['weight'] = 1
+        return new_df
+
+# 解析电影的分类数据为BiNE格式
+def parse_item_tags(train_file='../../BiNE/data/rating_train.dat', test_file='../../BiNE/data/rating_test.dat'):
+    # 获得每部电影对应的分类二部图
+    movie_df = pd.read_csv('data/ml-latest-small/movies.csv')
+    movie_df['movie_row'] = movie_df.index
+    tags_result = []
+    for item in movie_df.itertuples():
+        item_row = item.movie_row
+        for tag in item.genres.split('|'):
+            tags_result.append([item_row, tag])
+    
+    train_df = pd.DataFrame(tags_result, columns=['source','target'])
+
+    # 乱序
+    values = train_df.values
+    np.random.shuffle(values)
+    shuffle_df = pd.DataFrame(values, columns=['source','target'])
+
+    # 划分测试数据集
+    ratio = int(train_df['source'].count() * 0.8)
+    test_df = shuffle_df.iloc[ratio:, :]
+
+    # 处理成 BiNE 格式
+    train_df = _generate_BiNE_data(train_df)
+    test_df = _generate_BiNE_data(test_df)
+
+    # 保存数据
+    train_df.to_csv(train_file, index=None, header=None, sep='\t')
+    test_df.to_csv(test_file, index=None, header=None, sep='\t')
